@@ -48,7 +48,8 @@ architecture ppl_type of pynq is
 	component fpgadbg_spi
     generic (
       width       : integer;
-      log2samples : integer);
+      log2samples : integer;
+      num_of_signals: integer);
     port (
       trigger                 : in  std_logic;
       data_in                 : in  std_logic_vector((width-1) downto 0);
@@ -154,7 +155,8 @@ start <='1';
   fpgadbg_spi_1 : fpgadbg_spi
     generic map (
       width       => 33,
-      log2samples => 10)
+      log2samples => 10,
+      num_of_signals => 2)
     port map (
       sys_clk        => sys_clk,
       trigger        => trigger,

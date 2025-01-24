@@ -46,6 +46,10 @@ class fpgadbg_conv:
         lxt.lt_set_timescale(self.fout, timescale)
         # Setup the conversion table
         conv_table = []
+        # Flatten the array of tuples into a list and filter only integers
+        combined_assigments = [num for tup in assignments for num in tup if isinstance(num, int)]
+        self.total_lenght_of_declared_signals = 1 + max(combined_assigments) - min(combined_assigments)
+        self.number_of_declared_signals = len(assignments)
         for sigdef in assignments:
             if len(sigdef) != 3 and len(sigdef) != 5:
                 raise ValueError("Wrong length of signal assignment definition")
@@ -64,7 +68,6 @@ class fpgadbg_conv:
             conv_table.append((msb, lsb, s, name))
         # Convert the conversion table from list into tuple (to optimize accesses)
         self.conv_table = tuple(conv_table)
-    
     def split_and_reverse_fixed(self, input_string):
     # Split the input into 8-character chunks
         chunks = [input_string[i:i+8] for i in range(0, len(input_string), 8)]
@@ -113,19 +116,27 @@ class fpgadbg_conv:
         else:
             filled = 0
         num_of_samples = 1 << log2samples
-
+        
         # Extract data_width (next 8 bits) and convert to integer
         self.data_width = int(bit_string[8:16], 2)
+        if(self.number_of_declared_signals != int(bit_string[16:24], 2)):
+            raise ValueError(f"Mismatch between data_width read by SPI and declaration. Check signal declaration in main_fpgadbg_SPI.py and your VHDL implementation")
         # Calculate the number of data words per sample
         self.words_per_sample = (self.data_width + word_len - 1) // word_len
         # Extract trigger and stop positions based on data_width
+        
+        
+        
+        if(self.data_width != self.total_lenght_of_declared_signals):
+            raise ValueError(f"Mismatch between number_of_signals read by SPI and declaration. Check signal declaration in main_fpgadbg_SPI.py and your VHDL implementation")
+        
         if word_len >= 16:
-            trig_pos = int(bit_string[16:32], 2)
-            stop_pos = int(bit_string[32:48], 2)
+            trig_pos = int(bit_string[24:40], 2)
+            stop_pos = int(bit_string[40:56], 2)
             first_data = 48  # Start index of actual data in the bit string
         else:
-            trig_pos = int(bit_string[16:24], 2) + 256 * int(bit_string[24:32], 2)
-            stop_pos = int(bit_string[32:40], 2) + 256 * int(bit_string[40:48], 2)
+            trig_pos = int(bit_string[24:32], 2) + 256 * int(bit_string[32:40], 2)
+            stop_pos = int(bit_string[40:48], 2) + 256 * int(bit_string[48:56], 2)
             first_data = 48
 
         # Set the initial time to zero
@@ -139,7 +150,6 @@ class fpgadbg_conv:
         n_rounded = math.ceil(n_exact)
         
         past_pos = 8 + 40 * n_rounded 
-        print(past_pos)
         
         #process data:
 
@@ -150,8 +160,6 @@ class fpgadbg_conv:
         
         # If the buffer was filled, start from past_pos to after_last_data
         after_last_data = len(bit_string)
-        print(past_pos)
-        print(after_last_data)
         if filled:
             for i in range(past_pos, after_last_data, self.words_per_sample * word_len):
                 self.t += self.timestep

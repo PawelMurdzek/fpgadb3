@@ -53,7 +53,8 @@ library work;
 entity fpgadbg_spi is
   generic (
     width       : integer := 35;
-    log2samples : integer := 10);
+    log2samples : integer := 10;
+    num_of_signals: integer:= 1);
   port (
     trigger         : in  std_logic;
     data_in         : in  std_logic_vector((width-1) downto 0);
@@ -75,7 +76,8 @@ architecture syn of fpgadbg_spi is
     generic (
       outwidth    : integer;
       width       : integer;
-      log2samples : integer);
+      log2samples : integer;
+      num_of_signals: integer);
     port (
       wr_clk          : in  std_logic;
       trigger         : in  std_logic;
@@ -140,7 +142,8 @@ begin
     generic map (
       outwidth    => 8,
       width       => width,
-      log2samples => log2samples)
+      log2samples => log2samples,
+	  num_of_signals => num_of_signals)
     port map (
       wr_clk          => sys_clk,
       trigger         => trigger,

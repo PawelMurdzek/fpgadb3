@@ -3,10 +3,10 @@
 -- Project    : 
 -------------------------------------------------------------------------------
 -- File       : fpgadbg_tb.vhd
--- Author     : Wojciech M. Zabolotny
+-- Author     : Wojciech M. Zabolotny, Pawel A. Murdzek
 -- Company    : 
 -- Created    : 2006-07-08
--- Last update: 2006-07-28
+-- Last update: 2024-01-24
 -- Platform   : 
 -- Standard   : VHDL'87
 -------------------------------------------------------------------------------
@@ -17,6 +17,7 @@
 -- Revisions  :
 -- Date        Version  Author  Description
 -- 2006-07-08  1.0      wzab      Created
+-- 2024-01-24  1.1      wzab      Updated to give out more information
 -------------------------------------------------------------------------------
 --  
 --
@@ -48,9 +49,11 @@ library work;
 
 entity fpgadbg is
   generic (
-    outwidth    : integer := 16;
+    outwidth    : integer := 8;
     width       : integer := 35;
-    log2samples : integer := 10);
+    log2samples : integer := 10;
+    num_of_signals: integer := 1
+    );
   port (wr_clk          : in  std_logic;
         trigger         : in  std_logic;
         wr_init         : in  std_logic;
@@ -84,7 +87,7 @@ architecture syn of fpgadbg is
 
   type T_RD_STATE is (ST_RD_START, ST_RD_TRIG_POS, ST_RD_TRIG_POS_LSB,
                       ST_RD_STOP_POS, ST_RD_STOP_POS_LSB,
-                      ST_RD_DATA, ST_RD_FINISHED, ST_RD_WIDTH);
+                      ST_RD_DATA, ST_RD_FINISHED, ST_RD_WIDTH, ST_NUM_OF_SIGNALS);
   signal rd_state, rd_state_nxt : T_RD_STATE;
 
   signal cnt_in                     : integer range 0 to ((2**log2samples)-1);  -- counter of input samples;
@@ -102,6 +105,7 @@ architecture syn of fpgadbg is
   signal trig_pos_vec : std_logic_vector(15 downto 0);
   signal stop_pos_vec : std_logic_vector(15 downto 0);
 
+  
   constant words_per_sample : integer := (width+(outwidth-1))/outwidth;
   constant num_of_samples   : integer := 2**log2samples;
 
@@ -154,10 +158,9 @@ begin
   completed <= s_completed;
 
   -- Convert the trigger and stop positions into the bit vectors, to facilitate
-  -- sending of these values over the narrow interfaces (like UART)
+  -- sending of these values over the narrow interfaces (like SPI)
   trig_pos_vec <= std_logic_vector(to_unsigned(trig_pos, 16));
   stop_pos_vec <= std_logic_vector(to_unsigned(stop_pos, 16));
-
   -- Process collecting the data
   mp1 : process (wr_clk, wr_init)
   begin  -- process mp1
@@ -228,7 +231,10 @@ begin
         rd_state_nxt <= ST_RD_WIDTH;
       when ST_RD_WIDTH =>
         out_data     <= std_logic_vector(to_unsigned(width, outwidth));
-        rd_state_nxt <= ST_RD_TRIG_POS;
+        rd_state_nxt <= ST_NUM_OF_SIGNALS;
+      when ST_NUM_OF_SIGNALS =>
+      out_data     <= std_logic_vector(to_unsigned(num_of_signals, 8));
+      rd_state_nxt <= ST_RD_TRIG_POS;
       when ST_RD_TRIG_POS =>
         out_data <= out_mux2(16, outwidth, trig_pos_vec, 0);
         if outwidth >= 16 then
@@ -240,7 +246,7 @@ begin
         out_data     <= out_mux2(16, outwidth, trig_pos_vec, 1);
         rd_state_nxt <= ST_RD_STOP_POS;
       when ST_RD_STOP_POS =>
-        out_data <= out_mux2(16, outwidth, stop_pos_vec, 0);--"11111111";--out_mux2(16, outwidth, stop_pos_vec, 0);
+        out_data <= out_mux2(16, outwidth, stop_pos_vec, 0);
         if outwidth >= 16 then
           rd_smp_cnt_nxt     <= 0;
           rd_wrd_mux_sel_nxt <= 0;
@@ -249,7 +255,7 @@ begin
           rd_state_nxt <= ST_RD_STOP_POS_LSB;
         end if;
       when ST_RD_STOP_POS_LSB =>
-        out_data           <= out_mux2(16, outwidth, stop_pos_vec, 1);--"11111111";--out_mux2(16, outwidth, stop_pos_vec, 1);
+        out_data           <= out_mux2(16, outwidth, stop_pos_vec, 1);
         rd_smp_cnt_nxt     <= 0;
         rd_wrd_mux_sel_nxt <= 0;
         rd_state_nxt       <= ST_RD_DATA;

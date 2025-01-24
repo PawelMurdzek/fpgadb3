@@ -107,11 +107,20 @@ rst.off()
 tmp=sys.stdin.readline()
 rst.on()
 
+SPI_bus = 0
+SPI_chip_select = 0
+
+#default SPI_bus 0, chip select 0 pins 
+#SPI_MOSI_PIN = 10  # GPIO 10, Pin 19
+#SPI_MISO_PIN = 9   # GPIO 9, Pin 21
+#SPI_SCLK_PIN = 11  # GPIO 11, Pin 23
+#SPI_CS_PIN = 8     # GPIO 8, Pin 24 (CS0)
+
 spi = spidev.SpiDev()
-spi.open(0, 0)  # Open bus 0, chip select 0
+spi.open(SPI_bus, SPI_chip_select)  # Open bus 0, chip select 0
 
 spi.mode = 0b00  # Set SPI mode (0 to 3)
-spi.max_speed_hz = 5400000#25000  # Set SPI speed
+spi.max_speed_hz = 5400000  # Set SPI speed
 #spi.max_speed_hz:
 #PYNQ-Z2 = 10000000
 #tang20k-nano = 5400000
@@ -141,6 +150,9 @@ while(recording_signal.is_pressed):
     data=data + read_spi(1024) #The number of bytes you want to read
 print("received data:")
 print(data)
+
+#closing SPI as it is no longer needed
+spi.close()
 
 print("data after filtering")
 
